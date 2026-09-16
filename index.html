@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="color-scheme" content="dark">
+<title>Work Log</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --ink: #EDE7D8;
+    --paper: #14181A;
+    --paper-light: #232B27;
+    --panel: #1F2623;
+    --line: #3A443E;
+    --signal: #6FBF97;
+    --signal-dim: #549E78;
+    --data: #86B9DE;
+    --rust: #E08A52;
+    --font-head: 'Arial Narrow', 'Helvetica Neue Condensed', Arial, sans-serif;
+    --font-body: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    --font-mono: 'SF Mono', 'IBM Plex Mono', Consolas, Menlo, monospace;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    background: var(--paper) !important;
+  }
+
+  body {
+    margin: 0;
+    color: var(--ink);
+    font-family: var(--font-body);
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    min-height: 100vh;
+  }
+
+  .wrap {
+    max-width: 620px;
+    margin: 0 auto;
+    padding: 28px 18px 60px;
+  }
+
+  header {
+    border-bottom: 2px solid var(--ink);
+    padding-bottom: 18px;
+    margin-bottom: 18px;
+  }
+
+  h1 {
+    font-family: var(--font-head);
+    font-weight: 900;
+    font-size: 34px;
+    letter-spacing: 0.5px;
+    margin: 0 0 4px;
+    text-transform: uppercase;
+  }
+
+  .subtitle {
+    font-family: var(--font-mono);
+    font-size: 12.5px;
+    color: var(--data);
+    margin: 0;
+  }
+
+  .manifesto {
+    background: var(--panel);
+    border-left: 3px solid var(--signal);
+    padding: 14px 16px;
+    margin: 18px 0 24px;
+    font-size: 14px;
+  }
+
+  .manifesto p {
+    margin: 0 0 8px;
+    padding-left: 14px;
+    position: relative;
+  }
+  .manifesto p:last-child { margin-bottom: 0; }
+  .manifesto p::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 6px;
+    width: 6px;
+    height: 6px;
+    background: var(--signal);
+  }
+
+  section { margin-bottom: 26px; }
+
+  h2 {
+    font-family: var(--font-head);
+    text-transform: uppercase;
+    font-size: 16px;
+    letter-spacing: 0.5px;
+    margin: 0 0 10px;
+    font-weight: 800;
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 6px;
+  }
+
+  .field { margin-bottom: 10px; }
+  .field label {
+    display: block;
+    font-size: 12px;
+    color: var(--data);
+    font-family: var(--font-mono);
+    margin-bottom: 4px;
+  }
+  .field input, .field select, .field textarea {
+    width: 100%;
+    padding: 10px 10px;
+    border: 1px solid var(--line);
+    background: var(--paper-light);
+    color: var(--ink) !important;
+    font-family: var(--font-body);
+    font-size: 15px;
+    border-radius: 2px;
+    color-scheme: dark;
+  }
+  .field select option {
+    color: var(--ink);
+    background: var(--paper-light);
+  }
+  .field input:focus, .field select:focus, .field textarea:focus {
+    outline: 2px solid var(--signal);
+    outline-offset: 1px;
+  }
+  .row2 {
+    display: flex;
+    gap: 10px;
+  }
+  .row2 .field { flex: 1; }
+
+  .btn {
+    font-family: var(--font-head);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 800;
+    font-size: 14px;
+    border: none;
+    padding: 12px 18px;
+    background: var(--signal);
+    color: var(--paper-light);
+    cursor: pointer;
+    border-radius: 2px;
+    min-height: 44px;
+  }
+  .btn:active { background: var(--signal-dim); }
+  .btn.secondary {
+    background: transparent;
+    color: var(--ink);
+    border: 1px solid var(--line);
+  }
+
+  .formbar { display: flex; gap: 10px; align-items: center; margin-top: 4px; }
+
+  .stats {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .stat {
+    flex: 1;
+    min-width: 130px;
+    background: var(--panel);
+    padding: 12px 14px;
+    border-radius: 2px;
+  }
+  .stat .num {
+    font-family: var(--font-mono);
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--data);
+    display: block;
+  }
+  .stat .lbl {
+    font-size: 12px;
+    color: var(--ink);
+    opacity: 0.75;
+  }
+
+  .bars { margin-top: 14px; }
+  .bar-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+    font-size: 13px;
+  }
+  .bar-cat { width: 96px; flex-shrink: 0; }
+  .bar-track {
+    flex: 1;
+    background: var(--panel);
+    height: 10px;
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  .bar-fill {
+    height: 100%;
+    background: var(--data);
+  }
+  .bar-val {
+    font-family: var(--font-mono);
+    width: 46px;
+    text-align: right;
+    flex-shrink: 0;
+  }
+
+  .entry {
+    border-bottom: 1px solid var(--line);
+    padding: 10px 0;
+  }
+  .entry-top {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .entry-date {
+    font-family: var(--font-mono);
+    font-size: 12.5px;
+    color: var(--data);
+  }
+  .tag {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    background: var(--panel);
+    padding: 2px 6px;
+    border-radius: 2px;
+  }
+  .entry-hours {
+    font-family: var(--font-mono);
+    font-weight: 700;
+    margin-left: auto;
+  }
+  .entry-notes {
+    font-size: 14px;
+    margin-top: 4px;
+    color: var(--ink);
+  }
+  .entry-actions {
+    margin-top: 4px;
+  }
+  .entry-actions button {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    background: none;
+    border: none;
+    color: var(--data);
+    cursor: pointer;
+    padding: 4px 0;
+    margin-right: 14px;
+  }
+  .entry-actions button.del { color: var(--rust); }
+
+  .empty {
+    font-size: 14px;
+    color: var(--ink);
+    opacity: 0.7;
+    padding: 12px 0;
+  }
+
+  .loading { font-family: var(--font-mono); font-size: 13px; opacity: 0.6; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <h1>Work Log</h1>
+    <p class="subtitle">Force plates &middot; isokinetic testing &middot; ACL rehab research</p>
+  </header>
+
+  <div class="manifesto">
+    <p>Every test, every session, every set — logged the day it happens.</p>
+    <p>Hours are data. Treat them like force-plate output: precise, timestamped, not estimated after the fact.</p>
+    <p>If it's not in the ledger, it didn't happen.</p>
+  </div>
+
+  <section>
+    <h2 id="form-title">Log an entry</h2>
+    <div class="field">
+      <label for="f-date">Date</label>
+      <input type="date" id="f-date">
+    </div>
+    <div class="row2">
+      <div class="field">
+        <label for="f-category">Category</label>
+        <select id="f-category">
+          <option>Testing</option>
+          <option>Analysis</option>
+          <option>ACL Research</option>
+          <option>Reporting</option>
+          <option>Equipment</option>
+          <option>Meetings</option>
+          <option>Other</option>
+        </select>
+      </div>
+      <div class="field" style="max-width:110px;">
+        <label for="f-hours">Hours</label>
+        <input type="number" id="f-hours" step="0.25" min="0" placeholder="0.0">
+      </div>
+    </div>
+    <div class="field">
+      <label for="f-notes">Notes</label>
+      <textarea id="f-notes" rows="2" placeholder="What did the session cover?"></textarea>
+    </div>
+    <div class="formbar">
+      <button class="btn" id="submit-btn">Log it</button>
+      <button class="btn secondary" id="cancel-btn" style="display:none;">Cancel edit</button>
+    </div>
+  </section>
+
+  <section>
+    <h2>Totals</h2>
+    <div class="stats">
+      <div class="stat"><span class="num" id="stat-week">—</span><span class="lbl">this week</span></div>
+      <div class="stat"><span class="num" id="stat-all">—</span><span class="lbl">all time</span></div>
+    </div>
+    <div class="bars" id="bars"></div>
+  </section>
+
+  <section>
+    <h2>Ledger</h2>
+    <div id="ledger"><p class="loading">Loading entries…</p></div>
+  </section>
+
+</div>
+
+<script>
+const STORAGE_KEY = 'entries';
+let entries = [];
+let editingId = null;
+
+const el = id => document.getElementById(id);
+
+async function loadEntries() {
+  try {
+    const res = await window.storage.get(STORAGE_KEY, false);
+    entries = res && res.value ? JSON.parse(res.value) : [];
+  } catch (e) {
+    entries = [];
+  }
+  render();
+}
+
+async function saveEntries() {
+  try {
+    await window.storage.set(STORAGE_KEY, JSON.stringify(entries), false);
+  } catch (e) {
+    console.error('Storage error:', e);
+  }
+}
+
+function todayStr() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function mondayOf(dateStr) {
+  const d = new Date(dateStr + 'T00:00:00');
+  const day = d.getDay();
+  const diff = (day === 0 ? -6 : 1) - day;
+  d.setDate(d.getDate() + diff);
+  return d.toISOString().slice(0, 10);
+}
+
+function computeStats() {
+  const monday = mondayOf(todayStr());
+  let week = 0, all = 0;
+  const byCat = {};
+  entries.forEach(en => {
+    const h = parseFloat(en.hours) || 0;
+    all += h;
+    if (en.date >= monday) week += h;
+    byCat[en.category] = (byCat[en.category] || 0) + h;
+  });
+  return { week, all, byCat };
+}
+
+function renderStats() {
+  const { week, all, byCat } = computeStats();
+  el('stat-week').textContent = week.toFixed(1) + 'h';
+  el('stat-all').textContent = all.toFixed(1) + 'h';
+
+  const max = Math.max(1, ...Object.values(byCat));
+  const cats = Object.keys(byCat).sort((a, b) => byCat[b] - byCat[a]);
+  el('bars').innerHTML = cats.length ? cats.map(c => `
+    <div class="bar-row">
+      <div class="bar-cat">${c}</div>
+      <div class="bar-track"><div class="bar-fill" style="width:${(byCat[c]/max*100).toFixed(0)}%"></div></div>
+      <div class="bar-val">${byCat[c].toFixed(1)}h</div>
+    </div>`).join('') : '<p class="empty">Nothing logged yet — totals will show up here once you add an entry.</p>';
+}
+
+function renderLedger() {
+  if (!entries.length) {
+    el('ledger').innerHTML = '<p class="empty">No entries yet. Log your first session above.</p>';
+    return;
+  }
+  const sorted = [...entries].sort((a, b) => b.date.localeCompare(a.date) || b.createdAt - a.createdAt);
+  el('ledger').innerHTML = sorted.map(en => `
+    <div class="entry">
+      <div class="entry-top">
+        <span class="entry-date">${en.date}</span>
+        <span class="tag">${en.category}</span>
+        <span class="entry-hours">${parseFloat(en.hours).toFixed(2)}h</span>
+      </div>
+      ${en.notes ? `<div class="entry-notes">${escapeHtml(en.notes)}</div>` : ''}
+      <div class="entry-actions">
+        <button data-edit="${en.id}">Edit</button>
+        <button data-del="${en.id}" class="del">Delete</button>
+      </div>
+    </div>`).join('');
+
+  el('ledger').querySelectorAll('[data-edit]').forEach(b =>
+    b.addEventListener('click', () => startEdit(b.getAttribute('data-edit'))));
+  el('ledger').querySelectorAll('[data-del]').forEach(b =>
+    b.addEventListener('click', () => deleteEntry(b.getAttribute('data-del'))));
+}
+
+function escapeHtml(s) {
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+function render() {
+  renderStats();
+  renderLedger();
+}
+
+function startEdit(id) {
+  const en = entries.find(e => e.id === id);
+  if (!en) return;
+  editingId = id;
+  el('f-date').value = en.date;
+  el('f-category').value = en.category;
+  el('f-hours').value = en.hours;
+  el('f-notes').value = en.notes || '';
+  el('submit-btn').textContent = 'Save changes';
+  el('cancel-btn').style.display = 'inline-block';
+  el('form-title').textContent = 'Editing entry';
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function resetForm() {
+  editingId = null;
+  el('f-date').value = todayStr();
+  el('f-category').value = 'Testing';
+  el('f-hours').value = '';
+  el('f-notes').value = '';
+  el('submit-btn').textContent = 'Log it';
+  el('cancel-btn').style.display = 'none';
+  el('form-title').textContent = 'Log an entry';
+}
+
+async function deleteEntry(id) {
+  entries = entries.filter(e => e.id !== id);
+  await saveEntries();
+  render();
+  if (editingId === id) resetForm();
+}
+
+el('submit-btn').addEventListener('click', async () => {
+  const date = el('f-date').value || todayStr();
+  const category = el('f-category').value;
+  const hours = parseFloat(el('f-hours').value);
+  const notes = el('f-notes').value.trim();
+
+  if (!hours || hours <= 0) {
+    el('f-hours').focus();
+    return;
+  }
+
+  if (editingId) {
+    const en = entries.find(e => e.id === editingId);
+    Object.assign(en, { date, category, hours, notes });
+  } else {
+    entries.push({ id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()), date, category, hours, notes, createdAt: Date.now() });
+  }
+  await saveEntries();
+  render();
+  resetForm();
+});
+
+el('cancel-btn').addEventListener('click', resetForm);
+
+resetForm();
+loadEntries();
+</script>
+</body>
+</html>
