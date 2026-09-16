@@ -265,6 +265,12 @@
   }
 
   .loading { font-family: var(--font-mono); font-size: 13px; opacity: 0.6; }
+  .save-note {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    opacity: 0.55;
+    margin-top: 10px;
+  }
 </style>
 </head>
 <body>
@@ -327,32 +333,39 @@
   <section>
     <h2>Ledger</h2>
     <div id="ledger"><p class="loading">Loading entries…</p></div>
+    <div class="formbar" style="margin-top:14px;">
+      <button class="btn secondary" id="export-btn">Export JSON</button>
+      <button class="btn secondary" id="import-btn">Import JSON</button>
+      <input type="file" id="import-file" accept="application/json" style="display:none;">
+    </div>
+    <p class="save-note">Saved locally in this browser on this device. Use Export to back up or move your data (e.g. to another device or browser).</p>
   </section>
 
 </div>
 
 <script>
-const STORAGE_KEY = 'entries';
+const STORAGE_KEY = 'work_log_entries';
 let entries = [];
 let editingId = null;
 
 const el = id => document.getElementById(id);
 
-async function loadEntries() {
+function loadEntries() {
   try {
-    const res = await window.storage.get(STORAGE_KEY, false);
-    entries = res && res.value ? JSON.parse(res.value) : [];
+    const raw = localStorage.getItem(STORAGE_KEY);
+    entries = raw ? JSON.parse(raw) : [];
   } catch (e) {
     entries = [];
   }
   render();
 }
 
-async function saveEntries() {
+function saveEntries() {
   try {
-    await window.storage.set(STORAGE_KEY, JSON.stringify(entries), false);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
   } catch (e) {
     console.error('Storage error:', e);
+    alert('Could not save — your browser storage may be full or disabled for this page.');
   }
 }
 
@@ -458,14 +471,14 @@ function resetForm() {
   el('form-title').textContent = 'Log an entry';
 }
 
-async function deleteEntry(id) {
+function deleteEntry(id) {
   entries = entries.filter(e => e.id !== id);
-  await saveEntries();
+  saveEntries();
   render();
   if (editingId === id) resetForm();
 }
 
-el('submit-btn').addEventListener('click', async () => {
+el('submit-btn').addEventListener('click', () => {
   const date = el('f-date').value || todayStr();
   const category = el('f-category').value;
   const hours = parseFloat(el('f-hours').value);
@@ -480,14 +493,49 @@ el('submit-btn').addEventListener('click', async () => {
     const en = entries.find(e => e.id === editingId);
     Object.assign(en, { date, category, hours, notes });
   } else {
-    entries.push({ id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()), date, category, hours, notes, createdAt: Date.now() });
+    entries.push({ id: (crypto.randomUUID ? crypto.randomUUID() : String(Date.now())), date, category, hours, notes, createdAt: Date.now() });
   }
-  await saveEntries();
+  saveEntries();
   render();
   resetForm();
 });
 
 el('cancel-btn').addEventListener('click', resetForm);
+
+el('export-btn').addEventListener('click', () => {
+  const blob = new Blob([JSON.stringify(entries, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `work-log-${todayStr()}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+});
+
+el('import-btn').addEventListener('click', () => el('import-file').click());
+el('import-file').addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const imported = JSON.parse(reader.result);
+      if (!Array.isArray(imported)) throw new Error('not an array');
+      // Merge: keep existing, add any imported entries with new ids not already present
+      const existingIds = new Set(entries.map(en => en.id));
+      imported.forEach(en => {
+        if (en && en.id && !existingIds.has(en.id)) entries.push(en);
+      });
+      saveEntries();
+      render();
+      alert('Import complete.');
+    } catch (err) {
+      alert('Could not read that file as a valid work log export.');
+    }
+  };
+  reader.readAsText(file);
+  e.target.value = '';
+});
 
 resetForm();
 loadEntries();
