@@ -271,6 +271,117 @@
     opacity: 0.55;
     margin-top: 10px;
   }
+
+  /* --- tabs --- */
+  .tabs {
+    display: flex;
+    gap: 4px;
+    margin: 0 0 20px;
+    border-bottom: 1px solid var(--line);
+  }
+  .tab-btn {
+    font-family: var(--font-head);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 800;
+    font-size: 14px;
+    background: none;
+    border: none;
+    border-bottom: 3px solid transparent;
+    color: var(--ink);
+    opacity: 0.55;
+    padding: 10px 14px;
+    cursor: pointer;
+    min-height: 44px;
+  }
+  .tab-btn.active {
+    opacity: 1;
+    color: var(--signal);
+    border-bottom-color: var(--signal);
+  }
+  .tab-panel[hidden] { display: none; }
+
+  /* --- summary rings --- */
+  .summary-note {
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    opacity: 0.55;
+    margin: 0 0 16px;
+  }
+  .rings { display: flex; flex-direction: column; gap: 16px; }
+  .ring-card {
+    background: var(--panel);
+    border-left: 3px solid var(--signal);
+    padding: 16px;
+    border-radius: 2px;
+    display: flex;
+    gap: 16px;
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+  .ring-card .chart { flex: 0 0 150px; }
+  .ring-card .chart svg { width: 150px; height: 150px; display: block; }
+  .ring-card .side { flex: 1 1 240px; min-width: 0; }
+  .ring-title {
+    font-family: var(--font-head);
+    text-transform: uppercase;
+    font-size: 15px;
+    letter-spacing: 0.5px;
+    font-weight: 800;
+    margin: 0 0 2px;
+  }
+  .ring-range {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--data);
+    margin: 0 0 8px;
+  }
+  .ring-brief {
+    font-size: 13.5px;
+    margin: 0 0 10px;
+    line-height: 1.45;
+  }
+  .ring-delta { font-family: var(--font-mono); font-size: 12.5px; }
+  .ring-delta.up { color: var(--signal); }
+  .ring-delta.down { color: var(--rust); }
+  .ring-legend { margin: 0; padding: 0; list-style: none; }
+  .ring-legend li {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12.5px;
+    padding: 2px 0;
+  }
+  .ring-legend .sw {
+    width: 10px;
+    height: 10px;
+    border-radius: 2px;
+    flex-shrink: 0;
+  }
+  .ring-legend .cat {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .ring-legend .val {
+    font-family: var(--font-mono);
+    flex-shrink: 0;
+    opacity: 0.85;
+  }
+  .ring-center-num {
+    font-family: var(--font-mono);
+    font-size: 24px;
+    font-weight: 700;
+    fill: var(--ink);
+  }
+  .ring-center-lbl {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    fill: var(--data);
+    letter-spacing: 1px;
+  }
 </style>
 </head>
 <body>
@@ -280,6 +391,13 @@
     <h1>Work Log</h1>
     <p class="subtitle">Force plates &middot; isokinetic testing &middot; ACL rehab research</p>
   </header>
+
+  <div class="tabs" role="tablist">
+    <button class="tab-btn active" id="tab-log" role="tab" aria-selected="true" aria-controls="panel-log">Log</button>
+    <button class="tab-btn" id="tab-summary" role="tab" aria-selected="false" aria-controls="panel-summary">Summary</button>
+  </div>
+
+  <div class="tab-panel" id="panel-log" role="tabpanel" aria-labelledby="tab-log">
 
   <div class="manifesto">
     <p>Every test, every session, every set — logged the day it happens.</p>
@@ -341,6 +459,16 @@
     <p class="save-note">Saved locally in this browser on this device. Use Export to back up or move your data (e.g. to another device or browser).</p>
   </section>
 
+  </div><!-- /panel-log -->
+
+  <div class="tab-panel" id="panel-summary" role="tabpanel" aria-labelledby="tab-summary" hidden>
+    <section>
+      <h2>Summaries</h2>
+      <p class="summary-note">Read-only view of the same ledger &mdash; nothing on this tab writes to or alters your saved history.</p>
+      <div class="rings" id="rings"></div>
+    </section>
+  </div><!-- /panel-summary -->
+
 </div>
 
 <script>
@@ -369,16 +497,34 @@ function saveEntries() {
   }
 }
 
+// Date keys are plain local YYYY-MM-DD strings. toISOString() is UTC-based and
+// shifts the day in +10/+11 timezones, so all date maths goes through these.
+function dateToStr(d) {
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return d.getFullYear() + '-' + m + '-' + day;
+}
+
+function strToDate(dateStr) {
+  return new Date(dateStr + 'T00:00:00');
+}
+
 function todayStr() {
-  return new Date().toISOString().slice(0, 10);
+  return dateToStr(new Date());
+}
+
+function shiftDays(dateStr, n) {
+  const d = strToDate(dateStr);
+  d.setDate(d.getDate() + n);
+  return dateToStr(d);
 }
 
 function mondayOf(dateStr) {
-  const d = new Date(dateStr + 'T00:00:00');
+  const d = strToDate(dateStr);
   const day = d.getDay();
   const diff = (day === 0 ? -6 : 1) - day;
   d.setDate(d.getDate() + diff);
-  return d.toISOString().slice(0, 10);
+  return dateToStr(d);
 }
 
 function computeStats() {
@@ -444,6 +590,7 @@ function escapeHtml(s) {
 function render() {
   renderStats();
   renderLedger();
+  renderSummary();
 }
 
 function startEdit(id) {
@@ -536,6 +683,191 @@ el('import-file').addEventListener('change', (e) => {
   reader.readAsText(file);
   e.target.value = '';
 });
+
+/* ------------------------------------------------------------------
+   Summary tab — derived views only. Everything below reads `entries`
+   and never mutates or saves it.
+------------------------------------------------------------------ */
+
+const RING_PALETTE = ['#6FBF97', '#86B9DE', '#E08A52', '#C9A3E0', '#E2C86B', '#7FD1C8', '#D97F94', '#9FB4E0'];
+const BASE_CATS = ['Testing', 'Analysis', 'ACL Research', 'Reporting', 'Equipment', 'Meetings', 'Other'];
+
+// Stable colour per category, so a category keeps its colour across all three rings.
+function categoryColors() {
+  const extras = [...new Set(entries.map(e => e.category))]
+    .filter(c => c && BASE_CATS.indexOf(c) === -1)
+    .sort();
+  const map = {};
+  [...BASE_CATS, ...extras].forEach((c, i) => { map[c] = RING_PALETTE[i % RING_PALETTE.length]; });
+  return map;
+}
+
+function h(n) { return n.toFixed(1) + 'h'; }
+
+function fmtDay(dateStr) {
+  return strToDate(dateStr).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
+}
+
+function fmtMonth(dateStr) {
+  return strToDate(dateStr).toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+}
+
+// Sum entries whose date falls in [start, end] (inclusive, string comparison).
+function bucket(start, end) {
+  const byCat = {};
+  const days = new Set();
+  let total = 0, count = 0;
+  entries.forEach(en => {
+    if (!en || !en.date || en.date < start || en.date > end) return;
+    const hrs = parseFloat(en.hours) || 0;
+    total += hrs;
+    count++;
+    const cat = en.category || 'Other';
+    byCat[cat] = (byCat[cat] || 0) + hrs;
+    if (hrs > 0) days.add(en.date);
+  });
+  const slices = Object.keys(byCat)
+    .filter(c => byCat[c] > 0)
+    .map(c => ({ cat: c, hours: byCat[c] }))
+    .sort((a, b) => b.hours - a.hours);
+  return { total, count, days: days.size, slices, start, end };
+}
+
+function donutSVG(slices, total, centerLabel) {
+  const R = 56, SW = 18, CX = 70, CY = 70;
+  const C = 2 * Math.PI * R;
+  const colors = categoryColors();
+  let acc = 0;
+  const segs = slices.map(s => {
+    const raw = total > 0 ? (s.hours / total) * C : 0;
+    // Hairline gap between adjacent segments, never enough to hide a small slice.
+    const len = slices.length > 1 ? Math.max(raw - 2, Math.min(raw, 1.5)) : raw;
+    const seg = '<circle cx="' + CX + '" cy="' + CY + '" r="' + R + '" fill="none"' +
+      ' stroke="' + (colors[s.cat] || RING_PALETTE[0]) + '" stroke-width="' + SW + '"' +
+      ' stroke-dasharray="' + len.toFixed(2) + ' ' + (C - len).toFixed(2) + '"' +
+      ' stroke-dashoffset="' + (-acc).toFixed(2) + '"></circle>';
+    acc += raw;
+    return seg;
+  }).join('');
+
+  const track = '<circle cx="' + CX + '" cy="' + CY + '" r="' + R + '" fill="none" stroke="var(--paper-light)" stroke-width="' + SW + '"></circle>';
+
+  return '<svg viewBox="0 0 140 140" role="img" aria-label="' + escapeHtml(centerLabel + ': ' + h(total)) + '">' +
+    track +
+    '<g transform="rotate(-90 ' + CX + ' ' + CY + ')">' + segs + '</g>' +
+    '<text class="ring-center-num" x="70" y="70" text-anchor="middle">' + h(total) + '</text>' +
+    '<text class="ring-center-lbl" x="70" y="88" text-anchor="middle">' + escapeHtml(centerLabel.toUpperCase()) + '</text>' +
+    '</svg>';
+}
+
+function legendHTML(slices, total) {
+  if (!slices.length) return '';
+  const colors = categoryColors();
+  return '<ul class="ring-legend">' + slices.map(s =>
+    '<li>' +
+      '<span class="sw" style="background:' + (colors[s.cat] || RING_PALETTE[0]) + '"></span>' +
+      '<span class="cat">' + escapeHtml(s.cat) + '</span>' +
+      '<span class="val">' + h(s.hours) + ' &middot; ' + Math.round(s.hours / total * 100) + '%</span>' +
+    '</li>').join('') + '</ul>';
+}
+
+function deltaHTML(cur, prev, label, zeroLabel) {
+  if (prev <= 0) return '<span class="ring-delta">No hours logged ' + (zeroLabel || label) + '.</span>';
+  const d = cur - prev;
+  const cls = d >= 0 ? 'up' : 'down';
+  const sign = d >= 0 ? '+' : '−';
+  return '<span class="ring-delta ' + cls + '">' + label.charAt(0).toUpperCase() + label.slice(1) +
+    ': ' + h(prev) + ' (' + sign + Math.abs(d).toFixed(1) + 'h).</span>';
+}
+
+function topPhrase(b) {
+  if (!b.slices.length) return '';
+  const t = b.slices[0];
+  return ' Biggest slice: ' + escapeHtml(t.cat) + ' at ' + h(t.hours) +
+    ' (' + Math.round(t.hours / b.total * 100) + '%).';
+}
+
+function ringCardHTML(title, range, centerLabel, b, brief, delta) {
+  return '<div class="ring-card">' +
+    '<div class="chart">' + donutSVG(b.slices, b.total, centerLabel) + '</div>' +
+    '<div class="side">' +
+      '<h3 class="ring-title">' + title + '</h3>' +
+      '<p class="ring-range">' + range + '</p>' +
+      '<p class="ring-brief">' + brief + ' ' + delta + '</p>' +
+      legendHTML(b.slices, b.total) +
+    '</div>' +
+  '</div>';
+}
+
+function renderSummary() {
+  const host = el('rings');
+  if (!host) return;
+
+  if (!entries.length) {
+    host.innerHTML = '<p class="empty">No entries yet — daily, weekly and monthly rings appear here once you log something.</p>';
+    return;
+  }
+
+  const today = todayStr();
+
+  /* ---- daily ---- */
+  const day = bucket(today, today);
+  const prevDay = bucket(shiftDays(today, -1), shiftDays(today, -1));
+  const last7 = bucket(shiftDays(today, -6), today);
+  const dayBrief = day.total > 0
+    ? h(day.total) + ' logged today across ' + day.count + (day.count === 1 ? ' entry.' : ' entries.') + topPhrase(day) +
+      ' Rolling 7-day average is ' + h(last7.total / 7) + ' a day.'
+    : 'Nothing logged today yet. Rolling 7-day average is ' + h(last7.total / 7) + ' a day.';
+  const dayCard = ringCardHTML('Today', fmtDay(today), 'today', day, dayBrief,
+    deltaHTML(day.total, prevDay.total, 'yesterday'));
+
+  /* ---- weekly ---- */
+  const wStart = mondayOf(today);
+  const wEnd = shiftDays(wStart, 6);
+  const week = bucket(wStart, wEnd);
+  const pwStart = shiftDays(wStart, -7);
+  const prevWeek = bucket(pwStart, shiftDays(pwStart, 6));
+  const weekBrief = week.total > 0
+    ? h(week.total) + ' this week across ' + week.count + (week.count === 1 ? ' entry' : ' entries') +
+      ' on ' + week.days + (week.days === 1 ? ' day' : ' days') + '.' + topPhrase(week) +
+      ' That averages ' + h(week.total / week.days) + ' per day worked.'
+    : 'Nothing logged this week yet.';
+  const weekCard = ringCardHTML('This week', fmtDay(wStart) + ' – ' + fmtDay(wEnd), 'week', week, weekBrief,
+    deltaHTML(week.total, prevWeek.total, 'last week'));
+
+  /* ---- monthly ---- */
+  const now = strToDate(today);
+  const mStart = dateToStr(new Date(now.getFullYear(), now.getMonth(), 1));
+  const mEnd = dateToStr(new Date(now.getFullYear(), now.getMonth() + 1, 0));
+  const month = bucket(mStart, mEnd);
+  const pmStart = dateToStr(new Date(now.getFullYear(), now.getMonth() - 1, 1));
+  const pmEnd = dateToStr(new Date(now.getFullYear(), now.getMonth(), 0));
+  const prevMonth = bucket(pmStart, pmEnd);
+  const monthBrief = month.total > 0
+    ? h(month.total) + ' this month across ' + month.count + (month.count === 1 ? ' entry' : ' entries') +
+      ' on ' + month.days + ' active ' + (month.days === 1 ? 'day' : 'days') +
+      ', averaging ' + h(month.total / month.days) + ' per active day.' + topPhrase(month) +
+      ' Spread over ' + month.slices.length + ' ' + (month.slices.length === 1 ? 'category' : 'categories') + '.'
+    : 'Nothing logged this month yet.';
+  const monthCard = ringCardHTML(fmtMonth(mStart), fmtDay(mStart) + ' – ' + fmtDay(mEnd), 'month', month, monthBrief,
+    deltaHTML(month.total, prevMonth.total, fmtMonth(pmStart), 'in ' + fmtMonth(pmStart)));
+
+  host.innerHTML = dayCard + weekCard + monthCard;
+}
+
+/* ---- tabs ---- */
+function showTab(name) {
+  ['log', 'summary'].forEach(n => {
+    const active = n === name;
+    el('panel-' + n).hidden = !active;
+    el('tab-' + n).classList.toggle('active', active);
+    el('tab-' + n).setAttribute('aria-selected', String(active));
+  });
+  if (name === 'summary') renderSummary();
+}
+
+el('tab-log').addEventListener('click', () => showTab('log'));
+el('tab-summary').addEventListener('click', () => showTab('summary'));
 
 resetForm();
 loadEntries();
