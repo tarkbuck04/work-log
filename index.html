@@ -209,6 +209,10 @@
     text-align: right;
     flex-shrink: 0;
   }
+  .bar-row.clickable { cursor: pointer; }
+  .bar-row.clickable:hover .bar-cat { color: var(--signal); }
+  .bar-row.active .bar-cat { color: var(--signal); font-weight: 700; }
+  .bar-row.active .bar-track { outline: 1px solid var(--signal); }
 
   .entry {
     border-bottom: 1px solid var(--line);
@@ -421,6 +425,8 @@
           <option>Reporting</option>
           <option>Equipment</option>
           <option>Meetings</option>
+          <option>Claude</option>
+          <option>Bertec</option>
           <option>Other</option>
         </select>
       </div>
@@ -444,12 +450,21 @@
     <div class="stats">
       <div class="stat"><span class="num" id="stat-week">—</span><span class="lbl">this week</span></div>
       <div class="stat"><span class="num" id="stat-all">—</span><span class="lbl">all time</span></div>
+      <div class="stat"><span class="num" id="stat-streak">—</span><span class="lbl">day streak</span></div>
+      <div class="stat"><span class="num" id="stat-best-streak">—</span><span class="lbl">best streak</span></div>
     </div>
     <div class="bars" id="bars"></div>
+    <p class="summary-note" id="bars-hint" style="display:none;">Tap a category to filter the ledger below.</p>
   </section>
 
   <section>
     <h2>Ledger</h2>
+    <div class="field" id="ledger-filter-wrap" style="max-width:220px;">
+      <label for="ledger-filter">Filter by category</label>
+      <select id="ledger-filter">
+        <option value="All">All categories</option>
+      </select>
+    </div>
     <div id="ledger"><p class="loading">Loading entries…</p></div>
     <div class="formbar" style="margin-top:14px;">
       <button class="btn secondary" id="export-btn">Export JSON</button>
@@ -475,6 +490,7 @@
 const STORAGE_KEY = 'work_log_entries';
 let entries = [];
 let editingId = null;
+let ledgerFilter = 'All';
 
 const el = id => document.getElementById(id);
 
@@ -540,27 +556,85 @@ function computeStats() {
   return { week, all, byCat };
 }
 
+// Current streak = consecutive days with at least one logged hour, counting
+// back from today. If nothing's logged today yet, we start from yesterday
+// so the streak doesn't break just because the day isn't over.
+// Best streak = longest run of consecutive days ever logged.
+function computeStreak() {
+  const loggedDays = new Set(
+    entries.filter(en => (parseFloat(en.hours) || 0) > 0).map(en => en.date)
+  );
+  if (!loggedDays.size) return { current: 0, best: 0 };
+
+  let cursor = todayStr();
+  if (!loggedDays.has(cursor)) cursor = shiftDays(cursor, -1);
+  let current = 0;
+  while (loggedDays.has(cursor)) {
+    current++;
+    cursor = shiftDays(cursor, -1);
+  }
+
+  const sortedDays = [...loggedDays].sort();
+  let best = 0, run = 0, prev = null;
+  sortedDays.forEach(d => {
+    run = (prev && shiftDays(prev, 1) === d) ? run + 1 : 1;
+    best = Math.max(best, run);
+    prev = d;
+  });
+
+  return { current, best: Math.max(best, current) };
+}
+
 function renderStats() {
   const { week, all, byCat } = computeStats();
   el('stat-week').textContent = week.toFixed(1) + 'h';
   el('stat-all').textContent = all.toFixed(1) + 'h';
 
+  const { current, best } = computeStreak();
+  el('stat-streak').textContent = current + (current === 1 ? ' day' : ' days') + (current > 0 ? ' 🔥' : '');
+  el('stat-best-streak').textContent = best + (best === 1 ? ' day' : ' days');
+
   const max = Math.max(1, ...Object.values(byCat));
   const cats = Object.keys(byCat).sort((a, b) => byCat[b] - byCat[a]);
+  el('bars-hint').style.display = cats.length ? 'block' : 'none';
   el('bars').innerHTML = cats.length ? cats.map(c => `
-    <div class="bar-row">
-      <div class="bar-cat">${c}</div>
+    <div class="bar-row clickable${ledgerFilter === c ? ' active' : ''}" data-cat="${escapeHtml(c)}" title="Filter ledger by ${escapeHtml(c)}">
+      <div class="bar-cat">${escapeHtml(c)}</div>
       <div class="bar-track"><div class="bar-fill" style="width:${(byCat[c]/max*100).toFixed(0)}%"></div></div>
       <div class="bar-val">${byCat[c].toFixed(1)}h</div>
     </div>`).join('') : '<p class="empty">Nothing logged yet — totals will show up here once you add an entry.</p>';
+
+  el('bars').querySelectorAll('[data-cat]').forEach(row =>
+    row.addEventListener('click', () => setLedgerFilter(row.getAttribute('data-cat'))));
+}
+
+function setLedgerFilter(cat) {
+  ledgerFilter = (ledgerFilter === cat) ? 'All' : cat;
+  renderStats();
+  renderLedger();
 }
 
 function renderLedger() {
+  const filterSel = el('ledger-filter');
+  const presentCats = [...new Set(entries.map(en => en.category).filter(Boolean))].sort();
+  if (!presentCats.includes(ledgerFilter)) ledgerFilter = 'All';
+  filterSel.innerHTML = '<option value="All">All categories</option>' +
+    presentCats.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
+  filterSel.value = ledgerFilter;
+  el('ledger-filter-wrap').style.display = presentCats.length ? 'block' : 'none';
+
   if (!entries.length) {
     el('ledger').innerHTML = '<p class="empty">No entries yet. Log your first session above.</p>';
     return;
   }
-  const sorted = [...entries].sort((a, b) => b.date.localeCompare(a.date) || b.createdAt - a.createdAt);
+
+  const filtered = ledgerFilter === 'All' ? entries : entries.filter(en => en.category === ledgerFilter);
+  if (!filtered.length) {
+    el('ledger').innerHTML = `<p class="empty">No entries in "${escapeHtml(ledgerFilter)}" yet.</p>`;
+    return;
+  }
+
+  const sorted = [...filtered].sort((a, b) => b.date.localeCompare(a.date) || b.createdAt - a.createdAt);
   el('ledger').innerHTML = sorted.map(en => `
     <div class="entry">
       <div class="entry-top">
@@ -649,6 +723,8 @@ el('submit-btn').addEventListener('click', () => {
 
 el('cancel-btn').addEventListener('click', resetForm);
 
+el('ledger-filter').addEventListener('change', () => setLedgerFilter(el('ledger-filter').value));
+
 el('export-btn').addEventListener('click', () => {
   const blob = new Blob([JSON.stringify(entries, null, 2)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
@@ -690,7 +766,7 @@ el('import-file').addEventListener('change', (e) => {
 ------------------------------------------------------------------ */
 
 const RING_PALETTE = ['#6FBF97', '#86B9DE', '#E08A52', '#C9A3E0', '#E2C86B', '#7FD1C8', '#D97F94', '#9FB4E0'];
-const BASE_CATS = ['Testing', 'Analysis', 'ACL Research', 'Reporting', 'Equipment', 'Meetings', 'Other'];
+const BASE_CATS = ['Testing', 'Analysis', 'ACL Research', 'Reporting', 'Equipment', 'Meetings', 'Claude', 'Bertec', 'Other'];
 
 // Stable colour per category, so a category keeps its colour across all three rings.
 function categoryColors() {
